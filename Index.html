@@ -1,0 +1,110 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#552080">
+  <title>DRP Loyalty Card</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      color: white;
+      background: linear-gradient(145deg, #301044, #7139a0);
+    }
+    .card {
+      width: 100%;
+      max-width: 390px;
+      padding: 28px 22px;
+      text-align: center;
+      border: 1px solid #ffffff35;
+      border-radius: 26px;
+      background: #ffffff12;
+      box-shadow: 0 18px 55px #16051e55;
+    }
+    .logo {
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 5px;
+    }
+    .sub { color: #e2c9f7; margin: 8px 0 24px; }
+    h2 { margin-bottom: 8px; }
+    .stamps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 13px;
+      margin: 25px 0;
+    }
+    .stamp {
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 2px solid #d9b7f6;
+      background: #ffffff0c;
+      color: #e9d7fa;
+      font-size: 25px;
+    }
+    .stamp.done {
+      background: #e4c8ff;
+      color: #492066;
+      border-color: white;
+    }
+    .reward {
+      padding: 14px;
+      border-radius: 14px;
+      background: #ffffff15;
+      line-height: 1.8;
+    }
+    #status { margin-top: 18px; color: #f0ddff; font-size: 14px; }
+    .note { font-size: 12px; color: #e2c9f7; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo">DRP</div>
+    <div class="sub">COFFEE BAR · LOYALTY CLUB</div>
+    <h2>بطاقة الولاء</h2>
+    <div>اجمع 6 أختام وخذ مشروبك السابع مجانًا ☕</div>
+
+    <div class="stamps" id="stamps">
+      <div class="stamp">☕</div>
+      <div class="stamp">☕</div>
+      <div class="stamp">☕</div>
+      <div class="stamp">☕</div>
+      <div class="stamp">☕</div>
+      <div class="stamp">☕</div>
+    </div>
+
+    <div class="reward" id="reward">
+      🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني
+    </div>
+    <div id="status">افتح رابط بطاقتك الخاص لعرض أختامك.</div>
+    <div class="note">هذه البطاقة للعرض فقط؛ الأختام تُحدّث من الموظف.</div>
+  </main>
+
+  <script>
+    /*
+      واجهة العرض فقط.
+      لا تضف الأختام داخل المتصفح.
+      سنربطها لاحقًا بخدمة آمنة تتحقق من هوية الموظف.
+    */
+    const params = new URLSearchParams(location.search);
+    const cardCode = params.get("card");
+
+    if (!cardCode) {
+      document.getElementById("status").textContent =
+        "بطاقة DRP الرقمية — اطلب رابط بطاقتك الخاص من الموظف.";
+    } else {
+      document.getElementById("status").textContent =
+        "رقم البطاقة موجود. سيتم عرض الأختام بعد إكمال الربط الآمن.";
+    }
+  </script>
+</body>
+</html>
