@@ -2,109 +2,171 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#552080">
-  <title>DRP Loyalty Card</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 20px;
-      font-family: Arial, sans-serif;
-      color: white;
-      background: linear-gradient(145deg, #301044, #7139a0);
-    }
-    .card {
-      width: 100%;
-      max-width: 390px;
-      padding: 28px 22px;
-      text-align: center;
-      border: 1px solid #ffffff35;
-      border-radius: 26px;
-      background: #ffffff12;
-      box-shadow: 0 18px 55px #16051e55;
-    }
-    .logo {
-      font-size: 36px;
-      font-weight: 900;
-      letter-spacing: 5px;
-    }
-    .sub { color: #e2c9f7; margin: 8px 0 24px; }
-    h2 { margin-bottom: 8px; }
-    .stamps {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 13px;
-      margin: 25px 0;
-    }
-    .stamp {
-      aspect-ratio: 1;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      border: 2px solid #d9b7f6;
-      background: #ffffff0c;
-      color: #e9d7fa;
-      font-size: 25px;
-    }
-    .stamp.done {
-      background: #e4c8ff;
-      color: #492066;
-      border-color: white;
-    }
-    .reward {
-      padding: 14px;
-      border-radius: 14px;
-      background: #ffffff15;
-      line-height: 1.8;
-    }
-    #status { margin-top: 18px; color: #f0ddff; font-size: 14px; }
-    .note { font-size: 12px; color: #e2c9f7; margin-top: 18px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#552080">
+<title>DRP Loyalty Card</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;font-family:Arial,sans-serif;color:white;background:linear-gradient(145deg,#301044,#7139a0)}
+.card{width:100%;max-width:390px;padding:27px 21px;text-align:center;border:1px solid #ffffff35;border-radius:26px;background:#ffffff12;box-shadow:0 18px 55px #16051e55}
+.logo{font-size:36px;font-weight:900;letter-spacing:5px}
+.sub{color:#e2c9f7;margin:8px 0 24px}
+.stamps{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin:25px 0}
+.stamp{aspect-ratio:1;display:grid;place-items:center;border-radius:50%;border:2px solid #d9b7f6;background:#ffffff0c;color:#e9d7fa;font-size:25px}
+.stamp.done{background:#e4c8ff;color:#492066;border-color:white}
+.reward{padding:14px;border-radius:14px;background:#ffffff15;line-height:1.8}
+#status{margin-top:17px;color:#f0ddff;font-size:14px;line-height:1.7;overflow-wrap:anywhere}
+.note{font-size:12px;color:#e2c9f7;margin-top:17px}
+input,button{width:100%;padding:12px;margin-top:9px;border-radius:11px;border:1px solid #ffffff55;font-size:15px}
+input{background:#fff;color:#24102f}
+button{background:#e4c8ff;color:#492066;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.55}
+hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
+[hidden]{display:none!important}
+</style>
 </head>
 <body>
-  <main class="card">
-    <div class="logo">DRP</div>
-    <div class="sub">COFFEE BAR · LOYALTY CLUB</div>
-    <h2>بطاقة الولاء</h2>
-    <div>اجمع 6 أختام وخذ مشروبك السابع مجانًا ☕</div>
+<main class="card">
+  <div class="logo">DRP</div>
+  <div class="sub">COFFEE BAR · LOYALTY CLUB</div>
+  <h2>بطاقة الولاء</h2>
+  <div>اجمع 6 أختام وخذ مشروبك السابع مجانًا ☕</div>
 
-    <div class="stamps" id="stamps">
-      <div class="stamp">☕</div>
-      <div class="stamp">☕</div>
-      <div class="stamp">☕</div>
-      <div class="stamp">☕</div>
-      <div class="stamp">☕</div>
-      <div class="stamp">☕</div>
-    </div>
+  <div class="stamps" id="stamps">
+    <div class="stamp">☕</div><div class="stamp">☕</div>
+    <div class="stamp">☕</div><div class="stamp">☕</div>
+    <div class="stamp">☕</div><div class="stamp">☕</div>
+  </div>
 
-    <div class="reward" id="reward">
-      🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني
-    </div>
-    <div id="status">افتح رابط بطاقتك الخاص لعرض أختامك.</div>
-    <div class="note">هذه البطاقة للعرض فقط؛ الأختام تُحدّث من الموظف.</div>
-  </main>
+  <div class="reward" id="reward">🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني</div>
+  <div id="status">افتح رابط بطاقتك الخاص لعرض أختامك.</div>
+  <div class="note">بطاقة DRP الرقمية — الأختام تُحدّث من الموظف.</div>
 
-  <script>
-    /*
-      واجهة العرض فقط.
-      لا تضف الأختام داخل المتصفح.
-      سنربطها لاحقًا بخدمة آمنة تتحقق من هوية الموظف.
-    */
-    const params = new URLSearchParams(location.search);
-    const cardCode = params.get("card");
+  <section id="staff" hidden>
+    <hr><h3>إدارة الموظف</h3>
+    <input id="pin" type="password" placeholder="رمز الموظف PIN" autocomplete="off">
+    <button id="create">إنشاء بطاقة جديدة</button>
+    <input id="searchCode" placeholder="رمز البطاقة للبحث">
+    <button id="find">عرض البطاقة</button>
+    <button id="add" hidden>إضافة ختم ☕</button>
+    <button id="redeem" hidden>صرف المشروب المجاني 🎁</button>
+    <button id="copyLink" hidden>نسخ رابط البطاقة</button>
+  </section>
+</main>
 
-    if (!cardCode) {
-      document.getElementById("status").textContent =
-        "بطاقة DRP الرقمية — اطلب رابط بطاقتك الخاص من الموظف.";
-    } else {
-      document.getElementById("status").textContent =
-        "رقم البطاقة موجود. سيتم عرض الأختام بعد إكمال الربط الآمن.";
-    }
-  </script>
+<script>
+const SUPABASE_URL = "https://kgflchsswocnpnmomtya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_A34CEWQlSqkN1BcfUSJf2A_kQeZCD4u";
+const ENDPOINT = SUPABASE_URL + "/functions/v1/drp-staff";
+
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+let currentCode = params.get("card") || "";
+let currentStamps = 0;
+
+function message(text){ $("status").textContent = text; }
+
+function render(stamps){
+  currentStamps = Number(stamps);
+  document.querySelectorAll(".stamp").forEach((el,i)=>{
+    el.classList.toggle("done",i<currentStamps);
+    el.textContent = i<currentStamps ? "✓" : "☕";
+  });
+  $("reward").innerHTML = currentStamps===6
+    ? "🎁 اكتملت الأختام! مشروبك المجاني جاهز."
+    : `🎁 باقي لك <strong>${6-currentStamps}</strong> أختام للمشروب المجاني`;
+  $("add").hidden = !$("staff").hidden ? currentStamps>=6 : true;
+  $("redeem").hidden = $("staff").hidden || currentStamps!==6;
+}
+
+async function api(action, extra={}){
+  const response = await fetch(ENDPOINT,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "apikey":SUPABASE_KEY
+    },
+    body:JSON.stringify({action,...extra})
+  });
+  const data = await response.json();
+  if(!response.ok) throw new Error(data.error || "تعذر تنفيذ الطلب");
+  return data;
+}
+
+async function loadCard(code){
+  if(!code) throw new Error("أدخل رمز البطاقة أولًا");
+  const data = await api("find_card",{card_code:code});
+  currentCode = data.card.card_code;
+  render(data.card.stamps);
+  $("searchCode").value = currentCode;
+  $("add").hidden = $("staff").hidden || currentStamps>=6;
+  $("redeem").hidden = $("staff").hidden || currentStamps!==6;
+  $("copyLink").hidden = $("staff").hidden;
+  message("تم تحميل البطاقة بنجاح ☕");
+}
+
+async function run(button, task){
+  button.disabled=true;
+  try{ await task(); }
+  catch(e){ message(e.message || "حدث خطأ، حاول مجددًا"); }
+  finally{ button.disabled=false; }
+}
+
+$("create").onclick=()=>run($("create"),async()=>{
+  const pin=$("pin").value;
+  if(!pin) throw new Error("أدخل رمز الموظف");
+  const data=await api("create_card",{pin});
+  currentCode=data.card.card_code;
+  const link=new URL(location.href);
+  link.searchParams.set("card",currentCode);
+  $("searchCode").value=currentCode;
+  render(data.card.stamps);
+  $("copyLink").hidden=false;
+  $("add").hidden=false;
+  $("redeem").hidden=true;
+  message("تم إنشاء البطاقة. احفظ رابط الزبون: "+link.href);
+});
+
+$("find").onclick=()=>run($("find"),async()=>{
+  await loadCard($("searchCode").value.trim());
+  $("copyLink").hidden=false;
+});
+
+$("add").onclick=()=>run($("add"),async()=>{
+  const pin=$("pin").value;
+  if(!pin) throw new Error("أدخل رمز الموظف");
+  const data=await api("add_stamp",{pin,card_code:currentCode});
+  render(data.card.stamps);
+  message(data.message);
+});
+
+$("redeem").onclick=()=>run($("redeem"),async()=>{
+  const pin=$("pin").value;
+  if(!pin) throw new Error("أدخل رمز الموظف");
+  const data=await api("redeem_reward",{pin,card_code:currentCode});
+  render(data.card.stamps);
+  message(data.message);
+});
+
+$("copyLink").onclick=async()=>{
+  const link=new URL(location.href);
+  link.searchParams.set("card",currentCode);
+  try{
+    await navigator.clipboard.writeText(link.href);
+    message("تم نسخ رابط البطاقة");
+  }catch{
+    message("انسخ هذا الرابط يدويًا: "+link.href);
+  }
+};
+
+if(params.get("staff")==="1") $("staff").hidden=false;
+
+if(currentCode){
+  loadCard(currentCode).catch(e=>message(e.message));
+}else{
+  message("أهلًا بك في DRP 💜 افتح رابط بطاقتك الخاص لعرض أختامك.");
+}
+</script>
 </body>
 </html>
