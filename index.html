@@ -17,7 +17,7 @@ body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;font
 .stamp.done{background:#e4c8ff;color:#492066;border-color:white}
 .reward{padding:14px;border-radius:14px;background:#ffffff15;line-height:1.8}
 #status{margin-top:17px;color:#f0ddff;font-size:14px;line-height:1.7;overflow-wrap:anywhere}
-.note{font-size:12px;color:#e2c9f7;margin-top:17px}
+.note{font-size:12px;color:#e2c9f7;margin-top:17px;line-height:1.8}
 input,button{width:100%;padding:12px;margin-top:9px;border-radius:11px;border:1px solid #ffffff55;font-size:15px}
 input{background:#fff;color:#24102f}
 button{background:#e4c8ff;color:#492066;font-weight:bold;cursor:pointer}
@@ -33,25 +33,33 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
   <h2>بطاقة الولاء</h2>
   <div>اجمع 6 أختام وخذ مشروبك السابع مجانًا ☕</div>
 
+  <section id="customer">
+    <input id="phone" type="tel" inputmode="tel"
+      placeholder="رقم تلفونك مع رمز الدولة" autocomplete="tel">
+    <button id="openCard">عرض بطاقتي / تسجيل جديد</button>
+  </section>
+
   <div class="stamps" id="stamps">
     <div class="stamp">☕</div><div class="stamp">☕</div>
     <div class="stamp">☕</div><div class="stamp">☕</div>
     <div class="stamp">☕</div><div class="stamp">☕</div>
   </div>
 
-  <div class="reward" id="reward">🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني</div>
-  <div id="status">افتح رابط بطاقتك الخاص لعرض أختامك.</div>
-  <div class="note">بطاقة DRP الرقمية — الأختام تُحدّث من الموظف.</div>
+  <div class="reward" id="reward">
+    🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني
+  </div>
+
+  <div id="status">أدخل رقم تلفونك لعرض بطاقتك أو إنشاء بطاقة جديدة 💜</div>
+  <div class="note">بطاقة DRP الرقمية — الأختام تُضاف من الموظف.</div>
 
   <section id="staff" hidden>
-    <hr><h3>إدارة الموظف</h3>
+    <hr>
+    <h3>إدارة الموظف</h3>
     <input id="pin" type="password" placeholder="رمز الموظف PIN" autocomplete="off">
-    <button id="create">إنشاء بطاقة جديدة</button>
-    <input id="searchCode" placeholder="رمز البطاقة للبحث">
-    <button id="find">عرض البطاقة</button>
+    <input id="staffPhone" type="tel" inputmode="tel" placeholder="رقم تلفون الزبون">
+    <button id="find">البحث عن بطاقة الزبون</button>
     <button id="add" hidden>إضافة ختم ☕</button>
     <button id="redeem" hidden>صرف المشروب المجاني 🎁</button>
-    <button id="copyLink" hidden>نسخ رابط البطاقة</button>
   </section>
 </main>
 
@@ -59,113 +67,136 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
 const SUPABASE_URL = "https://kgflchsswocnpnmomtya.supabase.co";
 const SUPABASE_KEY = "sb_publishable_A34CEWQlSqkN1BcfUSJf2A_kQeZCD4u";
 const ENDPOINT = SUPABASE_URL + "/functions/v1/drp-staff";
-
 const $ = id => document.getElementById(id);
-const params = new URLSearchParams(location.search);
-let currentCode = params.get("card") || "";
+
+let currentCode = "";
 let currentStamps = 0;
 
-function message(text){ $("status").textContent = text; }
-
-function render(stamps){
-  currentStamps = Number(stamps);
-  document.querySelectorAll(".stamp").forEach((el,i)=>{
-    el.classList.toggle("done",i<currentStamps);
-    el.textContent = i<currentStamps ? "✓" : "☕";
-  });
-  $("reward").innerHTML = currentStamps===6
-    ? "🎁 اكتملت الأختام! مشروبك المجاني جاهز."
-    : `🎁 باقي لك <strong>${6-currentStamps}</strong> أختام للمشروب المجاني`;
-  $("add").hidden = !$("staff").hidden ? currentStamps>=6 : true;
-  $("redeem").hidden = $("staff").hidden || currentStamps!==6;
+function message(text) {
+  $("status").textContent = text;
 }
 
-async function api(action, extra={}){
-  const response = await fetch(ENDPOINT,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "apikey":SUPABASE_KEY
-    },
-    body:JSON.stringify({action,...extra})
+function normalizePhone(value) {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  return (trimmed.startsWith("+") ? "+" : "") + digits;
+}
+
+function render(stamps) {
+  currentStamps = Number(stamps);
+  document.querySelectorAll(".stamp").forEach((el, i) => {
+    el.classList.toggle("done", i < currentStamps);
+    el.textContent = i < currentStamps ? "✓" : "☕";
   });
-  const data = await response.json();
-  if(!response.ok) throw new Error(data.error || "تعذر تنفيذ الطلب");
+
+  $("reward").innerHTML = currentStamps === 6
+    ? "🎁 اكتملت الأختام! مشروبك المجاني جاهز."
+    : `🎁 باقي لك <strong>${6-currentStamps}</strong> أختام للمشروب المجاني`;
+
+  $("add").hidden = $("staff").hidden || !currentCode || currentStamps >= 6;
+  $("redeem").hidden = $("staff").hidden || !currentCode || currentStamps !== 6;
+}
+
+async function api(action, extra = {}) {
+  const response = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_KEY
+    },
+    body: JSON.stringify({action, ...extra})
+  });
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("تعذر الاتصال بالخادم. حاول مرة ثانية");
+  }
+
+  if (!response.ok) throw new Error(data.error || "تعذر تنفيذ الطلب");
   return data;
 }
 
-async function loadCard(code){
-  if(!code) throw new Error("أدخل رمز البطاقة أولًا");
-  const data = await api("find_card",{card_code:code});
-  currentCode = data.card.card_code;
-  render(data.card.stamps);
-  $("searchCode").value = currentCode;
-  $("add").hidden = $("staff").hidden || currentStamps>=6;
-  $("redeem").hidden = $("staff").hidden || currentStamps!==6;
-  $("copyLink").hidden = $("staff").hidden;
-  message("تم تحميل البطاقة بنجاح ☕");
-}
-
-async function run(button, task){
-  button.disabled=true;
-  try{ await task(); }
-  catch(e){ message(e.message || "حدث خطأ، حاول مجددًا"); }
-  finally{ button.disabled=false; }
-}
-
-$("create").onclick=()=>run($("create"),async()=>{
-  const pin=$("pin").value;
-  if(!pin) throw new Error("أدخل رمز الموظف");
-  const data=await api("create_card",{pin});
-  currentCode=data.card.card_code;
-  const link=new URL(location.href);
-  link.searchParams.set("card",currentCode);
-  $("searchCode").value=currentCode;
-  render(data.card.stamps);
-  $("copyLink").hidden=false;
-  $("add").hidden=false;
-  $("redeem").hidden=true;
-  message("تم إنشاء البطاقة. احفظ رابط الزبون: "+link.href);
-});
-
-$("find").onclick=()=>run($("find"),async()=>{
-  await loadCard($("searchCode").value.trim());
-  $("copyLink").hidden=false;
-});
-
-$("add").onclick=()=>run($("add"),async()=>{
-  const pin=$("pin").value;
-  if(!pin) throw new Error("أدخل رمز الموظف");
-  const data=await api("add_stamp",{pin,card_code:currentCode});
-  render(data.card.stamps);
-  message(data.message);
-});
-
-$("redeem").onclick=()=>run($("redeem"),async()=>{
-  const pin=$("pin").value;
-  if(!pin) throw new Error("أدخل رمز الموظف");
-  const data=await api("redeem_reward",{pin,card_code:currentCode});
-  render(data.card.stamps);
-  message(data.message);
-});
-
-$("copyLink").onclick=async()=>{
-  const link=new URL(location.href);
-  link.searchParams.set("card",currentCode);
-  try{
-    await navigator.clipboard.writeText(link.href);
-    message("تم نسخ رابط البطاقة");
-  }catch{
-    message("انسخ هذا الرابط يدويًا: "+link.href);
+async function run(button, task) {
+  button.disabled = true;
+  try {
+    await task();
+  } catch (e) {
+    message(e.message || "حدث خطأ، حاول مجددًا");
+  } finally {
+    button.disabled = false;
   }
-};
+}
 
-if(params.get("staff")==="1") $("staff").hidden=false;
+function showCard(card) {
+  currentCode = card.card_code;
+  $("staffPhone").value = card.phone_number || $("staffPhone").value;
+  render(card.stamps);
+}
 
-if(currentCode){
-  loadCard(currentCode).catch(e=>message(e.message));
-}else{
-  message("أهلًا بك في DRP 💜 افتح رابط بطاقتك الخاص لعرض أختامك.");
+$("openCard").onclick = () => run($("openCard"), async () => {
+  const phone = normalizePhone($("phone").value);
+  if (!phone || phone.replace(/\D/g, "").length < 8) {
+    throw new Error("أدخل رقم تلفون صحيحًا مع رمز الدولة إذا لزم");
+  }
+
+  const data = await api("get_or_create_card", {phone_number: phone});
+  showCard(data.card);
+
+  message(data.is_new
+    ? "أهلًا في DRP 💜 تم إنشاء بطاقتك! اجمع 6 أختام لتحصل على السابع مجانًا."
+    : "أهلًا بعودتك في DRP 💜 هاي بطاقتك الحالية وأختامك محفوظة.");
+});
+
+$("find").onclick = () => run($("find"), async () => {
+  const pin = $("pin").value;
+  const phone = normalizePhone($("staffPhone").value);
+
+  if (!pin) throw new Error("أدخل رمز الموظف");
+  if (!phone || phone.replace(/\D/g, "").length < 8) {
+    throw new Error("أدخل رقم تلفون الزبون");
+  }
+
+  const data = await api("find_by_phone", {
+    pin,
+    phone_number: phone
+  });
+
+  showCard(data.card);
+  message("تم العثور على بطاقة الزبون ☕");
+});
+
+$("add").onclick = () => run($("add"), async () => {
+  const pin = $("pin").value;
+  if (!pin) throw new Error("أدخل رمز الموظف");
+  if (!currentCode) throw new Error("ابحث عن بطاقة الزبون أولًا");
+
+  const data = await api("add_stamp", {
+    pin,
+    card_code: currentCode
+  });
+
+  showCard(data.card);
+  message(data.message);
+});
+
+$("redeem").onclick = () => run($("redeem"), async () => {
+  const pin = $("pin").value;
+  if (!pin) throw new Error("أدخل رمز الموظف");
+  if (!currentCode) throw new Error("ابحث عن بطاقة الزبون أولًا");
+
+  const data = await api("redeem_reward", {
+    pin,
+    card_code: currentCode
+  });
+
+  showCard(data.card);
+  message(data.message);
+});
+
+if (new URLSearchParams(location.search).get("staff") === "1") {
+  $("staff").hidden = false;
 }
 </script>
 </body>
