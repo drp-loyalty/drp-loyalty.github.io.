@@ -7,8 +7,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#552080">
 <title>DRP Loyalty Card</title>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
 <style>
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;font-family:Arial,sans-serif;color:white;background:linear-gradient(145deg,#301044,#7139a0)}
@@ -38,12 +40,11 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
 <main class="card">
   <div class="logo">DRP</div>
   <div class="sub">COFFEE BAR · LOYALTY CLUB</div>
-  <h2>بطاقة الولاء</h2>
-  <div>اجمع 6 أختام وخذ مشروبك السابع مجانًا ☕</div>
+  <h2 id="pageTitle">بطاقة الولاء</h2>
+  <div id="intro">اجمع 6 أختام وخذ مشروبك السابع مجانًا ☕</div>
 
   <section id="customer">
-    <input id="phone" type="tel" inputmode="tel"
-      placeholder="رقم تلفونك مع رمز الدولة" autocomplete="tel">
+    <input id="phone" type="tel" inputmode="tel" placeholder="رقم تلفونك مع رمز الدولة" autocomplete="tel">
     <button id="openCard">عرض بطاقتي / تسجيل جديد</button>
     <button id="changePhone" class="secondary" hidden>تغيير رقم التلفون</button>
   </section>
@@ -54,9 +55,7 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
     <div class="stamp">☕</div><div class="stamp">☕</div>
   </div>
 
-  <div class="reward" id="reward">
-    🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني
-  </div>
+  <div class="reward" id="reward">🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني</div>
 
   <section id="customerQR" hidden>
     <strong>💜 QR الخاص ببطاقتك</strong>
@@ -64,14 +63,13 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
     <div>اعرض هذا الرمز للموظف عند كل زيارة</div>
   </section>
 
-  <div id="status">قرّب تلفونك من NFC وافتح الموقع، ثم أدخل رقمك إذا كانت أول زيارة 💜</div>
+  <div id="status">أهلًا في DRP 💜 أدخل رقمك لعرض بطاقتك.</div>
   <div class="note">بطاقة DRP الرقمية — الأختام تُضاف بعد تأكيد الموظف.</div>
 
   <section id="staff" hidden>
     <hr>
     <h3>إدارة الموظف</h3>
     <input id="pin" type="password" placeholder="رمز الموظف PIN" autocomplete="off">
-
     <button id="startScan">مسح QR بطاقة الزبون 📷</button>
     <div id="reader" hidden></div>
 
@@ -79,9 +77,7 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
     <input id="staffPhone" type="tel" inputmode="tel" placeholder="رقم تلفون الزبون">
     <button id="find">البحث عن بطاقة الزبون</button>
 
-    <label for="stampCount" style="display:block;margin-top:18px">
-      عدد المشروبات المشتراة
-    </label>
+    <label for="stampCount" style="display:block;margin-top:18px">عدد المشروبات المشتراة</label>
     <select id="stampCount">
       <option value="1">ختم واحد</option>
       <option value="2">ختمان</option>
@@ -102,6 +98,9 @@ const SUPABASE_KEY = "sb_publishable_A34CEWQlSqkN1BcfUSJf2A_kQeZCD4u";
 const ENDPOINT = SUPABASE_URL + "/functions/v1/drp-staff";
 const SAVED_PHONE = "drp_customer_phone";
 const $ = id => document.getElementById(id);
+
+const params = new URLSearchParams(window.location.search);
+const IS_STAFF = params.get("staff") === "1";
 
 let currentCode = "";
 let currentStamps = 0;
@@ -130,11 +129,8 @@ function render(stamps) {
     ? "🎁 اكتملت الأختام! مشروبك المجاني جاهز."
     : `🎁 باقي لك <strong>${6-currentStamps}</strong> أختام للمشروب المجاني`;
 
-  $("add").hidden =
-    $("staff").hidden || !currentCode || currentStamps >= 6;
-
-  $("redeem").hidden =
-    $("staff").hidden || !currentCode || currentStamps !== 6;
+  $("add").hidden = !IS_STAFF || !currentCode || currentStamps >= 6;
+  $("redeem").hidden = !IS_STAFF || !currentCode || currentStamps !== 6;
 }
 
 async function api(action, extra = {}) {
@@ -151,11 +147,11 @@ async function api(action, extra = {}) {
   try {
     data = await response.json();
   } catch {
-    throw new Error("تعذر الاتصال بالخادم. حاول مرة ثانية");
+    throw new Error("تعذر الاتصال بالخادم. حاول مرة ثانية.");
   }
 
   if (!response.ok) {
-    throw new Error(data.error || "تعذر تنفيذ الطلب");
+    throw new Error(data.error || "تعذر تنفيذ الطلب.");
   }
 
   return data;
@@ -166,46 +162,49 @@ async function run(button, task) {
   try {
     await task();
   } catch (e) {
-    message(e.message || "حدث خطأ، حاول مجددًا");
+    message(e.message || "حدث خطأ، حاول مجددًا.");
   } finally {
     button.disabled = false;
   }
 }
 
 function makeQR(code) {
-  const section = $("customerQR");
-  const target = $("qrCode");
-  target.replaceChildren();
+  $("qrCode").replaceChildren();
 
-  if ($("staff").hidden && code && window.QRCode) {
-    section.hidden = false;
-    new QRCode(target, {
-      text: code,
-      width: 190,
-      height: 190,
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  } else {
-    section.hidden = true;
+  if (IS_STAFF || !code) {
+    $("customerQR").hidden = true;
+    return;
   }
+
+  if (!window.QRCode) {
+    $("customerQR").hidden = true;
+    message("تعذر تحميل QR. حدّث الصفحة وحاول مرة ثانية.");
+    return;
+  }
+
+  $("customerQR").hidden = false;
+  new QRCode($("qrCode"), {
+    text: code,
+    width: 190,
+    height: 190,
+    correctLevel: QRCode.CorrectLevel.M
+  });
 }
 
 function showCard(card) {
   currentCode = card.card_code;
-  currentStamps = Number(card.stamps);
+  render(card.stamps);
 
   if (card.phone_number) {
     $("staffPhone").value = card.phone_number;
   }
 
-  if (!$("staff").hidden) {
-    $("customer").hidden = true;
+  if (!IS_STAFF) {
+    $("changePhone").hidden = false;
+    makeQR(currentCode);
+  } else {
     $("customerQR").hidden = true;
   }
-
-  $("changePhone").hidden = $("staff").hidden;
-  render(currentStamps);
-  makeQR(currentCode);
 }
 
 async function loadCustomerCard(phone, savePhone = true) {
@@ -227,11 +226,9 @@ async function loadCustomerCard(phone, savePhone = true) {
 
 $("openCard").onclick = () => run($("openCard"), async () => {
   const phone = normalizePhone($("phone").value);
-
   if (!phone || phone.replace(/\D/g, "").length < 8) {
-    throw new Error("أدخل رقم تلفون صحيحًا مع رمز الدولة إذا لزم");
+    throw new Error("أدخل رقم تلفون صحيحًا مع رمز الدولة إذا لزم.");
   }
-
   await loadCustomerCard(phone);
 });
 
@@ -239,25 +236,23 @@ $("changePhone").onclick = () => {
   localStorage.removeItem(SAVED_PHONE);
   currentCode = "";
   currentStamps = 0;
-
   $("phone").value = "";
   $("customerQR").hidden = true;
   $("qrCode").replaceChildren();
   $("changePhone").hidden = true;
   $("add").hidden = true;
   $("redeem").hidden = true;
-
   render(0);
   message("أدخل رقم التلفون لعرض البطاقة المرتبطة فيه.");
-});
+};
 
 $("find").onclick = () => run($("find"), async () => {
   const pin = $("pin").value;
   const phone = normalizePhone($("staffPhone").value);
 
-  if (!pin) throw new Error("أدخل رمز الموظف");
+  if (!pin) throw new Error("أدخل رمز الموظف.");
   if (!phone || phone.replace(/\D/g, "").length < 8) {
-    throw new Error("أدخل رقم تلفون الزبون");
+    throw new Error("أدخل رقم تلفون الزبون.");
   }
 
   const data = await api("find_by_phone", {
@@ -269,59 +264,46 @@ $("find").onclick = () => run($("find"), async () => {
   message("تم العثور على بطاقة الزبون ☕");
 });
 
-async function stopScanner() {
-  if (scanner && scanning) {
-    try {
-      await scanner.stop();
-    } catch {}
-  }
-  scanning = false;
-  $("reader").hidden = true;
-}
-
 $("startScan").onclick = () => run($("startScan"), async () => {
-  if (!$("pin").value) throw new Error("أدخل رمز الموظف أولًا");
-  if (!window.Html5Qrcode) {
-    throw new Error("تعذر تحميل الكاميرا. حدّث الصفحة وحاول مرة ثانية.");
-  }
+  if (!$("pin").value) throw new Error("أدخل رمز الموظف أولًا.");
+  if (!window.Html5Qrcode) throw new Error("تعذر تحميل ماسح QR. حدّث الصفحة.");
 
   $("reader").hidden = false;
   scanner = new Html5Qrcode("reader");
+  scanning = false;
 
   try {
     await scanner.start(
       { facingMode: "environment" },
       { fps: 10, qrbox: { width: 220, height: 220 } },
       async decodedText => {
-        if (!scanning) return;
-        scanning = false;
+        if (scanning) return;
+        scanning = true;
 
         try {
           await scanner.stop();
         } catch {}
+
         $("reader").hidden = true;
 
-        await run($("startScan"), async () => {
-          const pin = $("pin").value;
-          const code = decodedText.trim();
-
+        try {
           const data = await api("find_by_code", {
-            pin,
-            card_code: code
+            pin: $("pin").value,
+            card_code: decodedText.trim()
           });
-
           showCard(data.card);
           message("تم مسح QR والعثور على بطاقة الزبون ☕");
-        });
+        } catch (e) {
+          message(e.message || "تعذر العثور على البطاقة.");
+        }
       },
       () => {}
     );
-    scanning = true;
+
     message("وجّه الكاميرا إلى QR الموجود على بطاقة الزبون.");
   } catch {
-    scanning = false;
     $("reader").hidden = true;
-    throw new Error("ما قدرنا نفتح الكاميرا. تأكد من إذن الكاميرا وافتح الموقع عبر HTTPS.");
+    throw new Error("تعذر فتح الكاميرا. تأكد من إذن الكاميرا وافتح الموقع عبر HTTPS.");
   }
 });
 
@@ -329,10 +311,10 @@ $("add").onclick = () => run($("add"), async () => {
   const pin = $("pin").value;
   const quantity = Number($("stampCount").value);
 
-  if (!pin) throw new Error("أدخل رمز الموظف");
-  if (!currentCode) throw new Error("ابحث عن بطاقة الزبون أولًا");
+  if (!pin) throw new Error("أدخل رمز الموظف.");
+  if (!currentCode) throw new Error("ابحث عن بطاقة الزبون أولًا.");
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 6) {
-    throw new Error("اختَر عدد أختام صحيحًا");
+    throw new Error("اختَر عدد أختام صحيحًا.");
   }
   if (currentStamps + quantity > 6) {
     throw new Error("عدد الأختام بتجاوز 6. عدّل العدد أو اصرف المكافأة أولًا.");
@@ -345,14 +327,13 @@ $("add").onclick = () => run($("add"), async () => {
   });
 
   showCard(data.card);
-  message(data.message || `تمت إضافة ${quantity} أختام بنجاح ☕`);
+  message(data.message || "تمت إضافة الأختام بنجاح ☕");
 });
 
 $("redeem").onclick = () => run($("redeem"), async () => {
   const pin = $("pin").value;
-
-  if (!pin) throw new Error("أدخل رمز الموظف");
-  if (!currentCode) throw new Error("ابحث عن بطاقة الزبون أولًا");
+  if (!pin) throw new Error("أدخل رمز الموظف.");
+  if (!currentCode) throw new Error("ابحث عن بطاقة الزبون أولًا.");
 
   const data = await api("redeem_reward", {
     pin,
@@ -360,18 +341,24 @@ $("redeem").onclick = () => run($("redeem"), async () => {
   });
 
   showCard(data.card);
-  message(data.message);
+  message(data.message || "تم صرف المشروب المجاني 🎁");
 });
 
-if (new URLSearchParams(location.search).get("staff") === "1") {
+/* تهيئة صفحة الموظفين بشكل صريح عند وجود ?staff=1 */
+if (IS_STAFF) {
   $("staff").hidden = false;
   $("customer").hidden = true;
   $("customerQR").hidden = true;
-  render(currentStamps);
+  $("changePhone").hidden = true;
+  $("pageTitle").textContent = "صفحة الموظفين";
+  $("intro").textContent = "DRP · إدارة بطاقات الولاء";
+  message("أدخل رمز الموظف PIN، ثم امسح QR أو ابحث عن الزبون.");
+} else {
+  $("staff").hidden = true;
 }
 
 async function restoreSavedCard() {
-  if (new URLSearchParams(location.search).get("staff") === "1") return;
+  if (IS_STAFF) return;
 
   const savedPhone = localStorage.getItem(SAVED_PHONE);
   if (!savedPhone) return;
