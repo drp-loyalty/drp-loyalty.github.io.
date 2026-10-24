@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -6,6 +7,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#552080">
 <title>DRP Loyalty Card</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;font-family:Arial,sans-serif;color:white;background:linear-gradient(145deg,#301044,#7139a0)}
@@ -25,6 +28,10 @@ button:disabled{opacity:.55}
 button.secondary{background:#ffffff15;color:white}
 hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
 [hidden]{display:none!important}
+#customerQR{margin-top:20px;padding:16px;background:#fff;color:#492066;border-radius:14px}
+#qrCode{display:flex;justify-content:center;margin:14px auto}
+#qrCode img,#qrCode canvas{max-width:100%;height:auto}
+#reader{width:100%;margin-top:12px;overflow:hidden;border-radius:12px}
 </style>
 </head>
 <body>
@@ -51,6 +58,12 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
     🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني
   </div>
 
+  <section id="customerQR" hidden>
+    <strong>💜 QR الخاص ببطاقتك</strong>
+    <div id="qrCode"></div>
+    <div>اعرض هذا الرمز للموظف عند كل زيارة</div>
+  </section>
+
   <div id="status">قرّب تلفونك من NFC وافتح الموقع، ثم أدخل رقمك إذا كانت أول زيارة 💜</div>
   <div class="note">بطاقة DRP الرقمية — الأختام تُضاف بعد تأكيد الموظف.</div>
 
@@ -58,6 +71,11 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
     <hr>
     <h3>إدارة الموظف</h3>
     <input id="pin" type="password" placeholder="رمز الموظف PIN" autocomplete="off">
+
+    <button id="startScan">مسح QR بطاقة الزبون 📷</button>
+    <div id="reader" hidden></div>
+
+    <div style="margin-top:16px">أو ابحث برقم تلفون الزبون</div>
     <input id="staffPhone" type="tel" inputmode="tel" placeholder="رقم تلفون الزبون">
     <button id="find">البحث عن بطاقة الزبون</button>
 
@@ -87,7 +105,8 @@ const $ = id => document.getElementById(id);
 
 let currentCode = "";
 let currentStamps = 0;
-let customerCardLoaded = false;
+let scanner = null;
+let scanning = false;
 
 function message(text) {
   $("status").textContent = text;
@@ -153,17 +172,40 @@ async function run(button, task) {
   }
 }
 
+function makeQR(code) {
+  const section = $("customerQR");
+  const target = $("qrCode");
+  target.replaceChildren();
+
+  if ($("staff").hidden && code && window.QRCode) {
+    section.hidden = false;
+    new QRCode(target, {
+      text: code,
+      width: 190,
+      height: 190,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } else {
+    section.hidden = true;
+  }
+}
+
 function showCard(card) {
   currentCode = card.card_code;
   currentStamps = Number(card.stamps);
-  customerCardLoaded = true;
 
   if (card.phone_number) {
     $("staffPhone").value = card.phone_number;
   }
 
-  $("changePhone").hidden = false;
+  if (!$("staff").hidden) {
+    $("customer").hidden = true;
+    $("customerQR").hidden = true;
+  }
+
+  $("changePhone").hidden = $("staff").hidden;
   render(currentStamps);
+  makeQR(currentCode);
 }
 
 async function loadCustomerCard(phone, savePhone = true) {
@@ -197,16 +239,17 @@ $("changePhone").onclick = () => {
   localStorage.removeItem(SAVED_PHONE);
   currentCode = "";
   currentStamps = 0;
-  customerCardLoaded = false;
 
   $("phone").value = "";
+  $("customerQR").hidden = true;
+  $("qrCode").replaceChildren();
   $("changePhone").hidden = true;
   $("add").hidden = true;
   $("redeem").hidden = true;
 
   render(0);
   message("أدخل رقم التلفون لعرض البطاقة المرتبطة فيه.");
-};
+});
 
 $("find").onclick = () => run($("find"), async () => {
   const pin = $("pin").value;
@@ -226,6 +269,62 @@ $("find").onclick = () => run($("find"), async () => {
   message("تم العثور على بطاقة الزبون ☕");
 });
 
+async function stopScanner() {
+  if (scanner && scanning) {
+    try {
+      await scanner.stop();
+    } catch {}
+  }
+  scanning = false;
+  $("reader").hidden = true;
+}
+
+$("startScan").onclick = () => run($("startScan"), async () => {
+  if (!$("pin").value) throw new Error("أدخل رمز الموظف أولًا");
+  if (!window.Html5Qrcode) {
+    throw new Error("تعذر تحميل الكاميرا. حدّث الصفحة وحاول مرة ثانية.");
+  }
+
+  $("reader").hidden = false;
+  scanner = new Html5Qrcode("reader");
+
+  try {
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 220, height: 220 } },
+      async decodedText => {
+        if (!scanning) return;
+        scanning = false;
+
+        try {
+          await scanner.stop();
+        } catch {}
+        $("reader").hidden = true;
+
+        await run($("startScan"), async () => {
+          const pin = $("pin").value;
+          const code = decodedText.trim();
+
+          const data = await api("find_by_code", {
+            pin,
+            card_code: code
+          });
+
+          showCard(data.card);
+          message("تم مسح QR والعثور على بطاقة الزبون ☕");
+        });
+      },
+      () => {}
+    );
+    scanning = true;
+    message("وجّه الكاميرا إلى QR الموجود على بطاقة الزبون.");
+  } catch {
+    scanning = false;
+    $("reader").hidden = true;
+    throw new Error("ما قدرنا نفتح الكاميرا. تأكد من إذن الكاميرا وافتح الموقع عبر HTTPS.");
+  }
+});
+
 $("add").onclick = () => run($("add"), async () => {
   const pin = $("pin").value;
   const quantity = Number($("stampCount").value);
@@ -235,36 +334,18 @@ $("add").onclick = () => run($("add"), async () => {
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 6) {
     throw new Error("اختَر عدد أختام صحيحًا");
   }
-
   if (currentStamps + quantity > 6) {
-    throw new Error(
-      "عدد الأختام بتجاوز 6. اصرف المشروب المجاني أولًا أو عدّل العدد."
-    );
+    throw new Error("عدد الأختام بتجاوز 6. عدّل العدد أو اصرف المكافأة أولًا.");
   }
 
-  let added = 0;
+  const data = await api("add_stamps", {
+    pin,
+    card_code: currentCode,
+    quantity
+  });
 
-  for (let i = 0; i < quantity; i++) {
-    try {
-      const data = await api("add_stamp", {
-        pin,
-        card_code: currentCode
-      });
-
-      showCard(data.card);
-      added++;
-    } catch (e) {
-      if (added > 0) {
-        message(
-          `تمت إضافة ${added} من ${quantity} أختام. ${e.message} راجع البطاقة قبل إعادة المحاولة.`
-        );
-        return;
-      }
-      throw e;
-    }
-  }
-
-  message(`تم تأكيد إضافة ${added} ${added === 1 ? "ختم" : "أختام"} بنجاح ☕`);
+  showCard(data.card);
+  message(data.message || `تمت إضافة ${quantity} أختام بنجاح ☕`);
 });
 
 $("redeem").onclick = () => run($("redeem"), async () => {
@@ -284,14 +365,13 @@ $("redeem").onclick = () => run($("redeem"), async () => {
 
 if (new URLSearchParams(location.search).get("staff") === "1") {
   $("staff").hidden = false;
-  $("stampCount").value = "1";
+  $("customer").hidden = true;
+  $("customerQR").hidden = true;
   render(currentStamps);
 }
 
 async function restoreSavedCard() {
-  if (new URLSearchParams(location.search).get("staff") === "1") {
-    return;
-  }
+  if (new URLSearchParams(location.search).get("staff") === "1") return;
 
   const savedPhone = localStorage.getItem(SAVED_PHONE);
   if (!savedPhone) return;
