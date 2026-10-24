@@ -18,10 +18,11 @@ body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;font
 .reward{padding:14px;border-radius:14px;background:#ffffff15;line-height:1.8}
 #status{margin-top:17px;color:#f0ddff;font-size:14px;line-height:1.7;overflow-wrap:anywhere}
 .note{font-size:12px;color:#e2c9f7;margin-top:17px;line-height:1.8}
-input,button{width:100%;padding:12px;margin-top:9px;border-radius:11px;border:1px solid #ffffff55;font-size:15px}
-input{background:#fff;color:#24102f}
+input,button,select{width:100%;padding:12px;margin-top:9px;border-radius:11px;border:1px solid #ffffff55;font-size:15px}
+input,select{background:#fff;color:#24102f}
 button{background:#e4c8ff;color:#492066;font-weight:bold;cursor:pointer}
 button:disabled{opacity:.55}
+button.secondary{background:#ffffff15;color:white}
 hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
 [hidden]{display:none!important}
 </style>
@@ -37,6 +38,7 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
     <input id="phone" type="tel" inputmode="tel"
       placeholder="رقم تلفونك مع رمز الدولة" autocomplete="tel">
     <button id="openCard">عرض بطاقتي / تسجيل جديد</button>
+    <button id="changePhone" class="secondary" hidden>تغيير رقم التلفون</button>
   </section>
 
   <div class="stamps" id="stamps">
@@ -49,8 +51,8 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
     🎁 باقي لك <strong>6</strong> أختام للمشروب المجاني
   </div>
 
-  <div id="status">أدخل رقم تلفونك لعرض بطاقتك أو إنشاء بطاقة جديدة 💜</div>
-  <div class="note">بطاقة DRP الرقمية — الأختام تُضاف من الموظف.</div>
+  <div id="status">قرّب تلفونك من NFC وافتح الموقع، ثم أدخل رقمك إذا كانت أول زيارة 💜</div>
+  <div class="note">بطاقة DRP الرقمية — الأختام تُضاف بعد تأكيد الموظف.</div>
 
   <section id="staff" hidden>
     <hr>
@@ -58,7 +60,20 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
     <input id="pin" type="password" placeholder="رمز الموظف PIN" autocomplete="off">
     <input id="staffPhone" type="tel" inputmode="tel" placeholder="رقم تلفون الزبون">
     <button id="find">البحث عن بطاقة الزبون</button>
-    <button id="add" hidden>إضافة ختم ☕</button>
+
+    <label for="stampCount" style="display:block;margin-top:18px">
+      عدد المشروبات المشتراة
+    </label>
+    <select id="stampCount">
+      <option value="1">ختم واحد</option>
+      <option value="2">ختمان</option>
+      <option value="3">3 أختام</option>
+      <option value="4">4 أختام</option>
+      <option value="5">5 أختام</option>
+      <option value="6">6 أختام</option>
+    </select>
+
+    <button id="add" hidden>تأكيد وإضافة الأختام ☕</button>
     <button id="redeem" hidden>صرف المشروب المجاني 🎁</button>
   </section>
 </main>
@@ -67,10 +82,12 @@ hr{border:0;border-top:1px solid #ffffff35;margin:23px 0}
 const SUPABASE_URL = "https://kgflchsswocnpnmomtya.supabase.co";
 const SUPABASE_KEY = "sb_publishable_A34CEWQlSqkN1BcfUSJf2A_kQeZCD4u";
 const ENDPOINT = SUPABASE_URL + "/functions/v1/drp-staff";
+const SAVED_PHONE = "drp_customer_phone";
 const $ = id => document.getElementById(id);
 
 let currentCode = "";
 let currentStamps = 0;
+let customerCardLoaded = false;
 
 function message(text) {
   $("status").textContent = text;
@@ -84,6 +101,7 @@ function normalizePhone(value) {
 
 function render(stamps) {
   currentStamps = Number(stamps);
+
   document.querySelectorAll(".stamp").forEach((el, i) => {
     el.classList.toggle("done", i < currentStamps);
     el.textContent = i < currentStamps ? "✓" : "☕";
@@ -93,8 +111,11 @@ function render(stamps) {
     ? "🎁 اكتملت الأختام! مشروبك المجاني جاهز."
     : `🎁 باقي لك <strong>${6-currentStamps}</strong> أختام للمشروب المجاني`;
 
-  $("add").hidden = $("staff").hidden || !currentCode || currentStamps >= 6;
-  $("redeem").hidden = $("staff").hidden || !currentCode || currentStamps !== 6;
+  $("add").hidden =
+    $("staff").hidden || !currentCode || currentStamps >= 6;
+
+  $("redeem").hidden =
+    $("staff").hidden || !currentCode || currentStamps !== 6;
 }
 
 async function api(action, extra = {}) {
@@ -114,7 +135,10 @@ async function api(action, extra = {}) {
     throw new Error("تعذر الاتصال بالخادم. حاول مرة ثانية");
   }
 
-  if (!response.ok) throw new Error(data.error || "تعذر تنفيذ الطلب");
+  if (!response.ok) {
+    throw new Error(data.error || "تعذر تنفيذ الطلب");
+  }
+
   return data;
 }
 
@@ -131,23 +155,58 @@ async function run(button, task) {
 
 function showCard(card) {
   currentCode = card.card_code;
-  $("staffPhone").value = card.phone_number || $("staffPhone").value;
-  render(card.stamps);
-}
+  currentStamps = Number(card.stamps);
+  customerCardLoaded = true;
 
-$("openCard").onclick = () => run($("openCard"), async () => {
-  const phone = normalizePhone($("phone").value);
-  if (!phone || phone.replace(/\D/g, "").length < 8) {
-    throw new Error("أدخل رقم تلفون صحيحًا مع رمز الدولة إذا لزم");
+  if (card.phone_number) {
+    $("staffPhone").value = card.phone_number;
   }
 
-  const data = await api("get_or_create_card", {phone_number: phone});
+  $("changePhone").hidden = false;
+  render(currentStamps);
+}
+
+async function loadCustomerCard(phone, savePhone = true) {
+  const data = await api("get_or_create_card", {
+    phone_number: phone
+  });
+
   showCard(data.card);
+
+  if (savePhone) {
+    localStorage.setItem(SAVED_PHONE, phone);
+    $("phone").value = phone;
+  }
 
   message(data.is_new
     ? "أهلًا في DRP 💜 تم إنشاء بطاقتك! اجمع 6 أختام لتحصل على السابع مجانًا."
     : "أهلًا بعودتك في DRP 💜 هاي بطاقتك الحالية وأختامك محفوظة.");
+}
+
+$("openCard").onclick = () => run($("openCard"), async () => {
+  const phone = normalizePhone($("phone").value);
+
+  if (!phone || phone.replace(/\D/g, "").length < 8) {
+    throw new Error("أدخل رقم تلفون صحيحًا مع رمز الدولة إذا لزم");
+  }
+
+  await loadCustomerCard(phone);
 });
+
+$("changePhone").onclick = () => {
+  localStorage.removeItem(SAVED_PHONE);
+  currentCode = "";
+  currentStamps = 0;
+  customerCardLoaded = false;
+
+  $("phone").value = "";
+  $("changePhone").hidden = true;
+  $("add").hidden = true;
+  $("redeem").hidden = true;
+
+  render(0);
+  message("أدخل رقم التلفون لعرض البطاقة المرتبطة فيه.");
+};
 
 $("find").onclick = () => run($("find"), async () => {
   const pin = $("pin").value;
@@ -169,20 +228,48 @@ $("find").onclick = () => run($("find"), async () => {
 
 $("add").onclick = () => run($("add"), async () => {
   const pin = $("pin").value;
+  const quantity = Number($("stampCount").value);
+
   if (!pin) throw new Error("أدخل رمز الموظف");
   if (!currentCode) throw new Error("ابحث عن بطاقة الزبون أولًا");
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 6) {
+    throw new Error("اختَر عدد أختام صحيحًا");
+  }
 
-  const data = await api("add_stamp", {
-    pin,
-    card_code: currentCode
-  });
+  if (currentStamps + quantity > 6) {
+    throw new Error(
+      "عدد الأختام بتجاوز 6. اصرف المشروب المجاني أولًا أو عدّل العدد."
+    );
+  }
 
-  showCard(data.card);
-  message(data.message);
+  let added = 0;
+
+  for (let i = 0; i < quantity; i++) {
+    try {
+      const data = await api("add_stamp", {
+        pin,
+        card_code: currentCode
+      });
+
+      showCard(data.card);
+      added++;
+    } catch (e) {
+      if (added > 0) {
+        message(
+          `تمت إضافة ${added} من ${quantity} أختام. ${e.message} راجع البطاقة قبل إعادة المحاولة.`
+        );
+        return;
+      }
+      throw e;
+    }
+  }
+
+  message(`تم تأكيد إضافة ${added} ${added === 1 ? "ختم" : "أختام"} بنجاح ☕`);
 });
 
 $("redeem").onclick = () => run($("redeem"), async () => {
   const pin = $("pin").value;
+
   if (!pin) throw new Error("أدخل رمز الموظف");
   if (!currentCode) throw new Error("ابحث عن بطاقة الزبون أولًا");
 
@@ -197,7 +284,32 @@ $("redeem").onclick = () => run($("redeem"), async () => {
 
 if (new URLSearchParams(location.search).get("staff") === "1") {
   $("staff").hidden = false;
+  $("stampCount").value = "1";
+  render(currentStamps);
 }
+
+async function restoreSavedCard() {
+  if (new URLSearchParams(location.search).get("staff") === "1") {
+    return;
+  }
+
+  const savedPhone = localStorage.getItem(SAVED_PHONE);
+  if (!savedPhone) return;
+
+  $("phone").value = savedPhone;
+  $("openCard").disabled = true;
+  message("جاري تحميل بطاقتك المحفوظة 💜");
+
+  try {
+    await loadCustomerCard(savedPhone, false);
+  } catch {
+    message("تعذر تحميل البطاقة. تأكد من الإنترنت وحاول مرة ثانية.");
+  } finally {
+    $("openCard").disabled = false;
+  }
+}
+
+restoreSavedCard();
 </script>
 </body>
 </html>
